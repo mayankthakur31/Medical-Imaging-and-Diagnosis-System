@@ -1,0 +1,8 @@
+{
+  "name": "RadPulse AI - Medical Imaging & Diagnostic Intelligence",
+  "description": "Educational & research platform for Chest X-ray & CT classification with Grad-CAM visual explainability, interactive DICOM viewer, clinical review workflows, and audit logging.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

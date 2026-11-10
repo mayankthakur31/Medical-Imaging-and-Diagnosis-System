@@ -1,0 +1,35 @@
+stages:
+  prepare_data:
+    cmd: python3 -m training.prepare_dataset --input data/raw --output data/processed --split-by patient_id
+    deps:
+      - data/raw
+      - training/prepare_dataset.py
+    outs:
+      - data/processed/train.csv
+      - data/processed/val.csv
+      - data/processed/test.csv
+
+  train_classifier:
+    cmd: python3 training/train_densenet.py --epochs 15 --batch-size 32 --lr 1e-4
+    deps:
+      - data/processed/train.csv
+      - data/processed/val.csv
+      - training/train_densenet.py
+    params:
+      - training.epochs
+      - training.lr
+      - training.batch_size
+    outs:
+      - models/checkpoints/best_densenet121_chestxray.pt
+    metrics:
+      - metrics/eval_results.json:
+          cache: false
+
+  evaluate_gradcam:
+    cmd: python3 -m tests.test_gradcam --model models/checkpoints/best_densenet121_chestxray.pt
+    deps:
+      - models/checkpoints/best_densenet121_chestxray.pt
+      - backend/services/gradcam.py
+    metrics:
+      - metrics/gradcam_localization_iou.json:
+          cache: false

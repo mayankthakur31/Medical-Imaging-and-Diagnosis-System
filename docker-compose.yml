@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # 1. Primary Relational Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: radpulse-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: radpulse_secure_password
+      POSTGRES_DB: radpulse_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Orthanc Open-Source DICOM PACS Server
+  orthanc:
+    image: orthancteam/orthanc:24.12.0
+    container_name: radpulse-orthanc
+    environment:
+      ORTHANC_REGISTERED_USERS: '{"orthanc": "orthanc"}'
+      ORTHANC_NAME: "RadPulse Medical PACS"
+      DICOM_AET: "ORTHANC"
+    ports:
+      - "8042:8042"  # Orthanc HTTP REST API
+      - "4242:4242"  # DICOM Protocol C-STORE / C-FIND port
+    volumes:
+      - orthanc_storage:/var/lib/orthanc/db
+
+  # 3. FastAPI + PyTorch Backend Inference Engine
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: radpulse-backend
+    environment:
+      DATABASE_URL: "postgresql://postgres:radpulse_secure_password@postgres:5432/radpulse_db"
+      ORTHANC_URL: "http://orthanc:8042"
+      ORTHANC_USER: "orthanc"
+      ORTHANC_PASSWORD: "orthanc"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      orthanc:
+        condition: service_started
+    volumes:
+      - ./models:/app/models
+      - ./storage:/app/storage
+
+  # 4. React Frontend Dashboard
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: radpulse-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  orthanc_storage:
